@@ -1,44 +1,67 @@
+using System;
 using UniRx;
 using UnityEngine;
 
-public class GameSequencer : MonoBehaviour
+public class GameSequencer : MonoBehaviour, IDisposable
 {
     [SerializeField]
-    private Title title;
+    private TitleManager titleManager;
 
     [SerializeField]
-    private InGame inGame;
+    private InGameManager inGameManager;
 
     [SerializeField]
-    private Result result;
+    private ResultManager resultManager;
+
+    [SerializeField]
+    private MusicalScore[] _musicalScores;
+    
+    private int selectMusicIndex = 0;
+
+    private CompositeDisposable _disposable = new();
 
     private void Start()
     {
-        title.OnStartButton.Subscribe(_ =>
+        // タイトル.
+        titleManager.OnStartButton.SkipLatestValueOnSubscribe().Subscribe(selectMusicIndex =>
         {
             Debug.Log("[GameSequencer] タイトル終了.");
-            title.gameObject.SetActive(false);
-            inGame.gameObject.SetActive(true);
-        }).AddTo(this);
+            titleManager.gameObject.SetActive(false);
+            
+            Debug.Log($"[GameSequencer] selectMusicIndex:{selectMusicIndex}");
+            inGameManager.gameObject.SetActive(true);
+            inGameManager.Initialize(selectMusicIndex, _musicalScores[selectMusicIndex]);
+        }).AddTo(_disposable);
 
-        inGame.OnEnd.Subscribe(_ =>
+        // インゲーム.
+        inGameManager.OnEnd.SkipLatestValueOnSubscribe().Subscribe(_ =>
         {
             Debug.Log("[GameSequencer] インゲーム終了.");
-            inGame.gameObject.SetActive(false);
-            result.gameObject.SetActive(true);
-        }).AddTo(this);
+            inGameManager.gameObject.SetActive(false);
+            
+            resultManager.gameObject.SetActive(true);
+        }).AddTo(_disposable);
 
-        result.OnRetryButton.Subscribe(_ =>
+        // リザルト.
+        resultManager.OnRetryButton.SkipLatestValueOnSubscribe().Subscribe(_ =>
         {
             Debug.Log("[GameSequencer] リトライ.");
-            result.gameObject.SetActive(false);
-            inGame.gameObject.SetActive(true);
-        }).AddTo(this);
-        result.OnTitleButton.Subscribe(_ =>
+            resultManager.gameObject.SetActive(false);
+            
+            inGameManager.gameObject.SetActive(true);
+            inGameManager.Initialize(selectMusicIndex, _musicalScores[selectMusicIndex]);
+        }).AddTo(_disposable);
+        resultManager.OnTitleButton.SkipLatestValueOnSubscribe().Subscribe(_ =>
         {
             Debug.Log("[GameSequencer] 戻る.");
-            result.gameObject.SetActive(false);
-            title.gameObject.SetActive(true);
-        }).AddTo(this);
+            resultManager.gameObject.SetActive(false);
+            
+            titleManager.gameObject.SetActive(true);
+        }).AddTo(_disposable);
+    }
+
+    public void Dispose()
+    {
+        _disposable?.Dispose();
     }
 }

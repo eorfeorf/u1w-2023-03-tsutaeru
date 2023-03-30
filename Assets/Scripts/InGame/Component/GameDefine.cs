@@ -19,10 +19,10 @@ public static class GameDefine
     public static float HEART_MOVE_AMP = 0.15f;
 
     public static float SEC60 = 60f;
-    public static float BPM = 120f;
+    public static float BPM = 360f;
 
     // ゲーム終了後待機時間.
-    public static int INGAME_END_WAIT_TIME_MS = 5000;
+    public static float INGAME_END_WAIT_TIME_SEC = 4f;
     
     
     /// <summary>
@@ -45,7 +45,12 @@ public static class GameDefine
 
     // タイトル用文字列.
     public static string TITLE_MESSAGE = "ドキドキを伝えて告白を成功させよう！";
-    public static string TITLE_BUTTON_TEXT = "告白する！";
+    public static string[] TITLE_BUTTONS_TEXT =
+    {
+        "気がある子に告白する！",
+        "興味なさそうな子に告白する！",
+        "冷たい子に告白する！",
+    };
 
     // リザルト用ゲーム成功ランク.
     public enum ResultRank

@@ -17,12 +17,26 @@ public class ResultView : MonoBehaviour
     [SerializeField]
     private TextMeshProUGUI titleButtonText;
 
-    public IObservable<Unit> OnRetryButton => retryButton.onClick.AsObservable();
-    public IObservable<Unit> OnTitleButton => titleButton.onClick.AsObservable();
+    public IReadOnlyReactiveProperty<Unit> OnRetryButton => _onRetryButton;
+    private readonly ReactiveProperty<Unit> _onRetryButton = new();
+
+    public IReadOnlyReactiveProperty<Unit> OnTitleButton => _onTitleButton;
+    private readonly ReactiveProperty<Unit> _onTitleButton = new();
+
 
     private void Start()
     {
         retryButtonText.text = GameDefine.RESULT_RETRY_BUTTON_TEXT;
         titleButtonText.text = GameDefine.RESULT_TITLE_BUTTON_TEXT;
+
+        retryButton.onClick.AsObservable().Subscribe(_ =>
+        {
+            _onRetryButton.SetValueAndForceNotify(Unit.Default);
+        }).AddTo(this);
+        
+        titleButton.onClick.AsObservable().Subscribe(_ =>
+        {
+            _onTitleButton.SetValueAndForceNotify(Unit.Default);
+        }).AddTo(this);
     }
 }

@@ -1,11 +1,14 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using InGame;
+using InGame.Component;
 using UniRx;
 using UnityEngine;
 
-public class InGame : MonoBehaviour
+public class InGameManager : MonoBehaviour
 {
     [SerializeField]
     private PlayView _playView;
@@ -19,41 +22,29 @@ public class InGame : MonoBehaviour
     public IReadOnlyReactiveProperty<GameDefine.ResultRank> OnEnd => _onEnd;
     private readonly ReactiveProperty<GameDefine.ResultRank> _onEnd = new();
 
-    private readonly List<Note> _notes = new();
+    private MusicalScoreLoader _musicalScoreLoader = new();
+    private MusicalScoreEntity _musicalScoreEntity;
+    private List<Note> _notes = new();
+    private List<ControlPoint> _controlPoints = new();
     private ProgressTimer _progressTimer = new();
 
     private bool _isEnd = false;
-    private int okCount = 0;
+    private int _okCount = 0;
+    private bool _isInitialized = false;
+    private int _musicalScoreIndex = -1;
 
-    private int noteNum = 10;
 
-    private void Reset()
+    public void Initialize(int index, MusicalScore musicalScore)
     {
-        // データ削除.
-        _playView.DestroyNoteViews();
-        // ビュー削除.
-        _notes.Clear();
-
-
-        // データ生成.
-        for (int i = 0; i < noteNum; ++i)
+        // 選ばれた楽曲の譜面を読み込む.
+        // if (!_isInitialized && index != _musicalScoreIndex)
+        if(index != _musicalScoreIndex)
         {
-            var note = new Note();
-            note.Time = GameDefine.START_ADD_TIME_SEC + i * (GameDefine.SEC60 / GameDefine.BPM);
-            note.IsActive = true;
-            note.Uid = i;
-            _notes.Add(note);
+            _musicalScoreEntity = _musicalScoreLoader.Load(musicalScore);
+            _isInitialized = true;
+            _musicalScoreIndex = index;
         }
-
-        // ビュー生成.
-        _playView.CreateNoteViews(_notes);
-
-        _isEnd = false;
-        okCount = 0;
-    }
-
-    private void OnEnable()
-    {
+        
         Reset();
 
         // ゲーム開始.
@@ -61,7 +52,34 @@ public class InGame : MonoBehaviour
         Debug.Log("[InGame] Game start.");
     }
 
-    private void Update()
+    private void Reset()
+    {
+        // ビュー削除.
+        _playView.DestroyNoteViews();
+        // ノーツ削除.
+        _notes.Clear();
+        // コントロールポイント削除.
+        _controlPoints.Clear();
+
+        // ノーツ生成.
+        foreach (var note in _musicalScoreEntity.Notes)
+        {
+            _notes.Add(new Note(note));
+        }
+        // コントロールポイント削除.
+        foreach (var controlPoint in _musicalScoreEntity.ControlPoints)
+        {
+            _controlPoints.Add(new ControlPoint(controlPoint));
+        }
+        
+        // ビュー生成.
+        _playView.CreateNoteViews(_notes);
+
+        _isEnd = false;
+        _okCount = 0;
+    }
+
+    private async void Update()
     {
         // 時間更新.
         _progressTimer.Update(Time.time);
@@ -109,7 +127,7 @@ public class InGame : MonoBehaviour
         {
             case NoteTiming.CheckType.Success:
                 note.IsActive = false;
-                ++okCount;
+                ++_okCount;
                 _playView.SetNoteActive(note.Uid, false);
                 _playView.ApplyRank(GameDefine.Rank.Ok);
                 _upperView.CrateHeart();
@@ -165,11 +183,11 @@ public class InGame : MonoBehaviour
     /// <summary>
     /// 終了後演出.
     /// </summary>
-    private async UniTask Ending()
+    private async UniTaskVoid Ending()
     {
-        await Task.Delay(GameDefine.INGAME_END_WAIT_TIME_MS);
+        await UniTask.Delay(TimeSpan.FromSeconds(GameDefine.INGAME_END_WAIT_TIME_SEC));
 
-        var rate = okCount / (float) noteNum;
+        var rate = _okCount / (float) _notes.Count;
         var resultRank = rate >= 0.9f ? GameDefine.ResultRank.Success : GameDefine.ResultRank.Fail;
         Debug.Log($"[InGame] ResultRank:{resultRank} rate:{rate}");
         _onEnd.SetValueAndForceNotify(resultRank);
